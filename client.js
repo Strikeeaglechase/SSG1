@@ -13,6 +13,7 @@ class Client {
 		this.permLevel = Perms.USER;
 		this.lastPingSent = Date.now();
 		this.lastPingRecived = Date.now();
+		this.ownedObjects = [];
 		this.ready = false;
 		this.waitingForPing = false;
 		this.lastPingDelay = 0;
@@ -30,16 +31,19 @@ class Client {
 		});
 	}
 	handleData(packet) {
-		if (packet.type != "ping") {
+		if (packet.type != "pong") {
 			console.log(this.id, packet);
 		}
 		if (packet.type == "action") {
 			var action = Actions[packet.action];
 			if (typeof action != "undefined") {
-				this.callAction(action, params);
+				this.callAction(action, packet.params);
 			} else {
 				console.log("%s sent an invalid action", this.id, data);
 			}
+		}
+		if (packet.type == "broadcast") {
+			this.broadcast(packet.data);
 		}
 		if (packet.type == "pong") {
 			this.lastPingRecived = Date.now();
@@ -90,6 +94,9 @@ class Client {
 		});
 	}
 	send(data) {
+		if (data.type != "ping") {
+			console.log("Sending: ", data);
+		}
 		this.socket.send(msgpack.encode(data));
 	}
 }

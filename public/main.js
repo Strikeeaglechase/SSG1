@@ -13,20 +13,20 @@ function setup() {
 	createCanvas(windowWidth, windowHeight);
 	frameRate(fRate);
 	angleMode(DEGREES);
-	network = new Network('localhost', 8000);
-	network.bindObjectEvents('User', {
-		onSpawn: (id) => {
+	network = new Network("localhost", 8000);
+	network.bindObjectEvents("User", {
+		spawn: () => {
 			var newUser = new User();
-			newUser._id = id;
 			users.push(newUser);
 			return newUser;
 		},
-		onDespawn: (id) => {
-			users = users.filter((user) => user._id != id);
+		despawn: id => {
+			users = users.filter(user => user._id != id);
 		}
 	});
-	user = new User('test-id', 'test-username');
-	// network.syncObject('user', user);
+	network.init();
+	user = new User("test-id", "test-username");
+	network.syncObject("User", user);
 }
 
 function run() {}

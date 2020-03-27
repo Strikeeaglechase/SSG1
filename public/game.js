@@ -1,16 +1,16 @@
 class User {
 	constructor(id, username) {
-		this.id = id;
+		this.gameId = id;
 		this.username = username;
 	}
 	deserialize(data) {
-		this.id = data.id;
+		this.gameId = data.gameId;
 		this.username = data.username;
 	}
 	serialize() {
 		return {
-			id: this.id,
+			gameId: this.gameId,
 			username: this.username
-		}
+		};
 	}
 }
