@@ -6,12 +6,10 @@ class Network {
 		opts = opts || {};
 		this.ip = ip;
 		this.port = port;
-		this.socket = new WebSocket('ws://' + ip + ':' + port);
-		this.trackedObjects = [];
-		this.inObjects = [];
-		this.trackedArrays = [];
-		this.boundObjects = [];
+		this.socket = new WebSocket("ws://" + ip + ":" + port);
 		this.ready = false;
+		this.trackedObjects = [];
+		this.netObjects = [];
 		this.events = {
 			onConnect: opts.onConnect || BLANK,
 			onDisconnect: opts.onDisconnect || BLANK
@@ -20,31 +18,39 @@ class Network {
 		this.init();
 	}
 	init() {
-		this.socket.addEventListener('open', (event) => {
-			console.log('open', event);
+		this.socket.addEventListener("open", event => {
+			console.log("Socket Connected");
 			this.ready = true;
 			this.events.onConnect(event);
 		});
-		this.socket.addEventListener('message', (event) => {
-			console.log('message', event);
-			this.handleData(event);
+		this.socket.addEventListener("message", async event => {
+			var asBuffer = await event.data.arrayBuffer();
+			var packet = msgpack.decode(new Uint8Array(asBuffer));
+			this.handleData(packet);
 		});
-		this.socket.addEventListener('close', (event) => {
-			console.log('close', event);
+		this.socket.addEventListener("close", event => {
+			console.log("Socket Disconnected");
 			this.ready = false;
-			this.events.onDisconnect();
+			this.events.onDisconnect(event);
 		});
 	}
-	handleData(event) {
-		const packet = event.data;
-		if (packet.type == 'action') {
-
+	handleData(packet) {
+		console.log(packet);
+		if (packet.type == "action") {
+		}
+		if (packet.type == "ping") {
+			this.send({
+				type: "pong",
+				val: packet.val
+			});
 		}
 	}
 	disconnect() {
 		this.socket.disconnect();
 	}
+	bindObjectEvents() {}
 	run() {}
-	bindSyncObject(objectName, objectConst, opts) {}
-	syncObject(name, object, opts) {}
+	send(data) {
+		this.socket.send(msgpack.encode(data));
+	}
 }

@@ -18,14 +18,15 @@ function setup() {
 		onSpawn: (id) => {
 			var newUser = new User();
 			newUser._id = id;
-			users.push();
+			users.push(newUser);
+			return newUser;
 		},
 		onDespawn: (id) => {
 			users = users.filter((user) => user._id != id);
 		}
 	});
 	user = new User('test-id', 'test-username');
-	network.syncObject('user', user);
+	// network.syncObject('user', user);
 }
 
 function run() {}
