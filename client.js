@@ -31,7 +31,7 @@ class Client {
 		});
 	}
 	handleData(packet) {
-		if (packet.type != "pong") {
+		if (packet.type != "pong" && packet.action != "syncData") {
 			console.log(this.id, packet);
 		}
 		if (packet.type == "action") {
@@ -93,11 +93,11 @@ class Client {
 			}
 		});
 	}
-	send(data) {
-		if (data.type != "ping") {
-			console.log("Sending: ", data);
+	send(packet) {
+		if (packet.type != "ping" && packet.action != "syncData") {
+			console.log("Sending: ", packet);
 		}
-		this.socket.send(msgpack.encode(data));
+		this.socket.send(msgpack.encode(packet));
 	}
 }
 module.exports = Client;

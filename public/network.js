@@ -1,5 +1,5 @@
 const BLANK = () => {};
-const DEFAULT_UPDATE_RATE = 1;
+const DEFAULT_UPDATE_RATE = 5000;
 const newId = () => Math.floor(Math.random() * 1e9).toString();
 class Network {
 	constructor(ip, port, opts) {
@@ -16,7 +16,8 @@ class Network {
 		};
 		this.objectEvents = [];
 		this.sendBuffer = [];
-		this.t = 0;
+		this.startTime = Date.now();
+		this.totalSentBytes = 0;
 	}
 	init() {
 		this.socket.addEventListener("open", event => {
@@ -37,9 +38,10 @@ class Network {
 		this.addAction("newSyncObject", this.newSyncObject, this);
 		this.addAction("despawnNetObject", this.despawnNetObject, this);
 		this.addAction("connect", this.handleNewClient, this);
+		this.addAction("syncData", this.handelSyncData, this);
 	}
 	handleData(packet) {
-		if (packet.type != "ping") {
+		if (packet.type != "ping" && packet.action != "syncData") {
 			console.log(packet);
 		}
 		if (packet.type == "action") {
@@ -66,6 +68,19 @@ class Network {
 			});
 		});
 	}
+	handelSyncData(packet) {
+		packet.forEach(syncData => {
+			const netObject = this.netObjects.find(obj => obj.id == syncData.id);
+			if (!netObject) {
+				console.log(
+					"Sync data for unknown object with id of &s",
+					syncData.id
+				);
+			} else {
+				netObject.object.deserialize(syncData.data);
+			}
+		});
+	}
 	newSyncObject(packet) {
 		if (this.netObjects.find(obj => obj.id == packet.id)) {
 			console.log("New object %s already exists. Disregarding", packet.id);
@@ -75,11 +90,12 @@ class Network {
 				console.log("Error missing object events for %s", packet.name);
 				return;
 			}
-			var obj = objEvents.spawn();
-			obj._id = packet.id;
+			var obj = objEvents.spawn.call(objEvents.scope);
+			obj.id = packet.id;
 			this.netObjects.push({
 				object: obj,
 				despawn: objEvents.despawn,
+				despawnScope: objEvents.scope,
 				id: packet.id
 			});
 		}
@@ -89,7 +105,7 @@ class Network {
 		if (!object) {
 			return;
 		}
-		object.despawn();
+		object.despawn.call(object.despawnScope, object.id);
 		this.netObjects = this.netObjects.filter(obj => obj.id != object.id);
 	}
 	disconnect() {
@@ -106,11 +122,11 @@ class Network {
 		this.objectEvents[name] = events;
 		console.log("Bound events to %s", name);
 	}
-	syncObject(name, object) {
-		object._id = newId();
+	syncObject(name, object, updateRate) {
+		object.id = newId();
 		const packet = {
 			name: name,
-			id: object._id
+			id: object.id
 		};
 		this.send({
 			type: "action",
@@ -119,7 +135,11 @@ class Network {
 		});
 		this.syncObjects.push({
 			object: object,
-			definition: packet
+			definition: packet,
+			updateRate: updateRate || DEFAULT_UPDATE_RATE,
+			lastUpdate: Date.now(),
+			lastPacket: undefined,
+			id: object.id
 		});
 	}
 	run() {
@@ -127,12 +147,38 @@ class Network {
 			this.sendBuffer.forEach(packet => this.send(packet));
 			this.sendBuffer = [];
 		}
+		var syncPacket = [];
+		var t = Date.now();
+		this.syncObjects.forEach(syncObj => {
+			const serialData = syncObj.object.serialize();
+			const jsonString = JSON.stringify(serialData);
+			if (
+				t - syncObj.lastUpdate > syncObj.updateRate ||
+				jsonString != syncObj.lastPacket
+			) {
+				syncObj.lastUpdate = t;
+				syncObj.lastPacket = jsonString;
+				syncPacket.push({
+					id: syncObj.id,
+					data: serialData
+				});
+			}
+		});
+		if (syncPacket.length) {
+			this.send({
+				type: "action",
+				action: "syncData",
+				params: syncPacket
+			});
+		}
 	}
 	send(data) {
 		if (this.socket.readyState != 1) {
 			this.sendBuffer.push(data);
 			return;
 		}
-		this.socket.send(msgpack.encode(data));
+		const byteArray = msgpack.encode(data);
+		this.totalSentBytes += byteArray.byteLength;
+		this.socket.send(byteArray);
 	}
 }

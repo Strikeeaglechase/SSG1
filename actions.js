@@ -42,5 +42,11 @@ module.exports = {
 				obj => obj.id != params.id
 			);
 		}
+	},
+	syncData: {
+		permLevel: Perms.USER,
+		informClients: true,
+		name: "syncData",
+		execute: (client, params) => {}
 	}
 };
