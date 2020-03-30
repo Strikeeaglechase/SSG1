@@ -10,14 +10,10 @@ function k(k) {
 function setup() {
 	createCanvas(windowWidth, windowHeight);
 	frameRate(fRate);
-	angleMode(DEGREES);
 	network = new Network("192.168.1.224", 8000);
 	network.init();
-
 	game = new Game(network);
 }
-
-function run() {}
 
 function draw() {
 	background(backgroundColor);
@@ -31,6 +27,8 @@ function draw() {
 	text(kbs.toFixed(2) + "KB/s", 10, 10);
 	game.run();
 	network.run();
+	text((game.player.currentThrottle * 100).toFixed(0) + "%", 100, 100);
+	text(game.player.vel.mag().toFixed(2) + "p/f", 100, 130);
 }
 
 function windowResized() {
