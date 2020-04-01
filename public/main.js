@@ -1,8 +1,9 @@
 const fRate = 60;
 const backgroundColor = 0;
-var network = undefined;
 var keys = [];
+var network;
 var game;
+var craft;
 function k(k) {
 	return keys[k.toUpperCase().charCodeAt(0)];
 }
@@ -12,7 +13,8 @@ function setup() {
 	frameRate(fRate);
 	network = new Network("192.168.1.224", 8000);
 	network.init();
-	game = new Game(network);
+	// game = new Game(network);
+	craft = new Aircraft("test");
 }
 
 function draw() {
@@ -25,10 +27,9 @@ function draw() {
 		network.totalSentBytes = 0;
 	}
 	text(kbs.toFixed(2) + "KB/s", 10, 10);
-	game.run();
+	craft.run();
+	// game.run();
 	network.run();
-	text((game.player.currentThrottle * 100).toFixed(0) + "%", 100, 100);
-	text(game.player.vel.mag().toFixed(2) + "p/f", 100, 130);
 }
 
 function windowResized() {

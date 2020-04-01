@@ -123,7 +123,7 @@ class Network {
 		console.log("Bound events to %s", name);
 	}
 	syncObject(name, object, updateRate) {
-		object.id = newId();
+		object.id = object.id || newId();
 		const packet = {
 			name: name,
 			id: object.id
@@ -180,5 +180,20 @@ class Network {
 		const byteArray = msgpack.encode(data);
 		this.totalSentBytes += byteArray.byteLength;
 		this.socket.send(byteArray);
+	}
+}
+
+class NetworkSyncObject {
+	constructor() {
+		this.id = newId();
+	}
+	serialize() {
+		return JSON.stringify(this);
+	}
+	deserialize(jsonData) {
+		const obj = JSON.parse(jsonData);
+		for (var i in obj) {
+			this[i] = obj[i];
+		}
 	}
 }
