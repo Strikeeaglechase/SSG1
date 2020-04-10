@@ -1,5 +1,6 @@
 const PING_MS = 1000;
 const TIMEOUT = 10000;
+const LOG = false;
 const Perms = require("./perms.js");
 const Actions = require("./actions.js");
 const ID = require("./id.js");
@@ -22,16 +23,16 @@ class Client {
 	initHandlers() {
 		this.ready = true;
 		this.callAction(Actions["connect"]);
-		this.socket.addEventListener("message", event => {
+		this.socket.addEventListener("message", (event) => {
 			var packet = msgpack.decode(event.data);
 			this.handleData(packet);
 		});
-		this.socket.addEventListener("close", event => {
+		this.socket.addEventListener("close", (event) => {
 			this.callAction(Actions["disconnect"]);
 		});
 	}
 	handleData(packet) {
-		if (packet.type != "pong" && packet.action != "syncData") {
+		if (packet.type != "pong" && packet.action != "syncData" && LOG) {
 			console.log(this.id, packet);
 		}
 		if (packet.type == "action") {
@@ -55,7 +56,7 @@ class Client {
 		if (Date.now() - this.lastPingSent > PING_MS && !this.waitingForPing) {
 			this.send({
 				type: "ping",
-				val: Date.now()
+				val: Date.now(),
 			});
 			this.waitingForPing = true;
 			this.lastPingSent = Date.now();
@@ -81,20 +82,20 @@ class Client {
 					type: "action",
 					action: action.name,
 					params: params,
-					owner: this.id
+					owner: this.id,
 				});
 			}
 		}
 	}
 	broadcast(packet) {
-		this.network.clients.forEach(client => {
+		this.network.clients.forEach((client) => {
 			if (client.id != this.id) {
 				client.send(packet);
 			}
 		});
 	}
 	send(packet) {
-		if (packet.type != "ping" && packet.action != "syncData") {
+		if (packet.type != "ping" && packet.action != "syncData" && LOG) {
 			console.log("Sending: ", packet);
 		}
 		this.socket.send(msgpack.encode(packet));

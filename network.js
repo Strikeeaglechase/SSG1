@@ -6,16 +6,16 @@ const WebSocket = require("ws");
 class Network {
 	constructor(webServer) {
 		this.server = new WebSocket.Server({
-			server: webServer
+			server: webServer,
 		});
 		this.clients = [];
 	}
 	start() {
-		this.server.on("connection", socket => {
+		this.server.on("connection", (socket) => {
 			this.clients.push(new Client(socket, this));
 		});
 		setInterval(
-			net => {
+			(net) => {
 				net.run();
 			},
 			TICK_MS,
@@ -23,11 +23,11 @@ class Network {
 		);
 	}
 	run() {
-		this.clients.forEach(client => {
+		this.clients.forEach((client) => {
 			client.run();
 		});
 		this.clients = this.clients.filter(
-			client => client.socket.readyState == 1
+			(client) => client.socket.readyState == 1
 		);
 	}
 }

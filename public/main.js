@@ -13,8 +13,7 @@ function setup() {
 	frameRate(fRate);
 	network = new Network("192.168.1.224", 8000);
 	network.init();
-	// game = new Game(network);
-	craft = new Aircraft("test");
+	game = new Game(network);
 }
 
 function draw() {
@@ -26,9 +25,29 @@ function draw() {
 		network.startTime = Date.now();
 		network.totalSentBytes = 0;
 	}
-	text(kbs.toFixed(2) + "KB/s", 10, 10);
-	craft.run();
-	// game.run();
+	var y = 10;
+	text(kbs.toFixed(2) + "KB/s", 10, y);
+	y += 15;
+	for (var i in network.actionTotalBytes) {
+		var data = network.actionTotalBytes[i];
+		var bytesPerPacket = (data.total / data.sent).toFixed(2);
+		var packetsSecond = (
+			(data.sent / (Date.now() - data.started)) *
+			1000
+		).toFixed(2);
+		text(
+			i +
+				": " +
+				bytesPerPacket +
+				" bytes/packet  " +
+				packetsSecond +
+				" packets/second",
+			10,
+			y
+		);
+		y += 12;
+	}
+	game.run();
 	network.run();
 }
 

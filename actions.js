@@ -7,7 +7,11 @@ module.exports = {
 		name: "connect",
 		execute: (client, params) => {
 			console.log("Client %s connected!", client.id);
-		}
+			client.send({
+				type: "assignNetId",
+				id: client.id,
+			});
+		},
 	},
 	disconnect: {
 		permLevel: Perms.USER,
@@ -15,15 +19,15 @@ module.exports = {
 		name: "disconnect",
 		execute: (client, params) => {
 			console.log("Client %s disconnected!", client.id);
-			client.ownedObjects.forEach(owned => {
+			client.ownedObjects.forEach((owned) => {
 				client.broadcast({
 					type: "action",
 					action: "despawnNetObject",
 					params: owned.id,
-					owner: client.id
+					owner: client.id,
 				});
 			});
-		}
+		},
 	},
 	newSyncObject: {
 		permLevel: Perms.USER,
@@ -31,7 +35,7 @@ module.exports = {
 		name: "newSyncObject",
 		execute: (client, params) => {
 			client.ownedObjects.push(params);
-		}
+		},
 	},
 	despawnNetObject: {
 		permLevel: Perms.USER,
@@ -39,14 +43,14 @@ module.exports = {
 		name: "despawnNetObject",
 		execute: (client, params) => {
 			client.ownedObjects = client.ownedObjects.filter(
-				obj => obj.id != params.id
+				(obj) => obj.id != params.id
 			);
-		}
+		},
 	},
 	syncData: {
 		permLevel: Perms.USER,
 		informClients: true,
 		name: "syncData",
-		execute: (client, params) => {}
-	}
+		execute: (client, params) => {},
+	},
 };

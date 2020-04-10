@@ -2,6 +2,9 @@ const MIN_VEL = 0.01;
 const THROTTLE_RATE = 0.01;
 const SHIP_WID = 25;
 const SHIP_HEI = 5;
+const BULLET_SPEED = 15;
+const BULLET_LIFETIME = 750;
+const DEAD_ZONE = 0;
 const MOVER_DATA = {
 	base: {
 		primaryDrag: 0.99,
@@ -10,7 +13,7 @@ const MOVER_DATA = {
 		turnDrag: 0.98,
 		turnDragDegs: 5,
 		turnRate: 1,
-		speedTurnMult: 0
+		speedTurnMult: 0,
 	},
 	test: {
 		primaryDrag: 1,
@@ -19,32 +22,54 @@ const MOVER_DATA = {
 		turnDrag: 1,
 		turnDragDegs: 5,
 		turnRate: 2,
-		speedTurnMult: 0
-	}
+		speedTurnMult: 0,
+	},
 };
+var player;
 
-// class Game {
-// 	constructor(network) {
-// 		this.player = new Ship();
-// 		this.player.isLocal = true;
-// 		this.players = [this.player];
-// 		network.bindObjectEvents("Player", {
-// 			spawn: () => {
-// 				var newPlayer = new Ship();
-// 				this.players.push(newPlayer);
-// 				return newPlayer;
-// 			},
-// 			despawn: id => {
-// 				this.players = this.players.filter(player => player.id != id);
-// 			},
-// 			scope: this
-// 		});
-// 		network.syncObject("Player", this.player);
-// 	}
-// 	run() {
-// 		this.players.forEach(player => player.run());
-// 	}
-// }
+function fixAngle(ang) {
+	ang %= 360;
+	return ang < 0 ? ang + 360 : ang;
+}
+
+class Game {
+	constructor(network) {
+		this.player = new Aircraft("test", this);
+		player = this.player;
+		this.player.isLocal = true;
+		this.players = [this.player];
+		this.bullets = [];
+		this.initNetworkEvents();
+		network.syncObject("Player", this.player, { syncOnChange: true });
+	}
+	initNetworkEvents() {
+		network.bindObjectEvents("Player", {
+			spawn: () => {
+				var newPlayer = new Aircraft("test");
+				this.players.push(newPlayer);
+				return newPlayer;
+			},
+			despawn: (id) => {
+				this.players = this.players.filter((player) => player.id != id);
+			},
+			scope: this,
+		});
+		network.bindObjectEvents("Bullet", {
+			spawn: (params) => {
+				var newBullet = new Bullet(params);
+				this.Bullet.push(params.pos, params.vel);
+				return newBullet;
+			},
+			despawn: (id) => {},
+			scope: this,
+		});
+	}
+	run() {
+		this.players.forEach((player) => player.run());
+		this.bullets.forEach((bullet) => bullet.run());
+		this.bullets = this.bullets.filter((bullet) => !bullet.killed);
+	}
+}
 
 class Mover extends NetworkSyncObject {
 	constructor(opts) {
@@ -69,6 +94,7 @@ class Mover extends NetworkSyncObject {
 		this.move();
 	}
 	move() {
+		this.rot = fixAngle(this.rot);
 		this.forwardVector = Vector.fromAngle(this.rot);
 		this.currentThrottle = Math.max(0, Math.min(1, this.currentThrottle));
 		if (this.vel.mag() < MIN_VEL) {
@@ -87,7 +113,7 @@ class Mover extends NetworkSyncObject {
 		v2.mult(mag * (1 - this.liftCoef));
 		this.vel = v1.add(v2);
 	}
-	tunrLeft() {
+	turnLeft() {
 		this.rot -= this.turnRate * (this.speedTurnMult * this.vel.mag() + 1);
 		this.vel.mult(this.turnDrag);
 	}
@@ -106,14 +132,16 @@ class Mover extends NetworkSyncObject {
 			pos: this.pos.toObject(),
 			vel: this.vel.toObject(),
 			rot: this.rot,
-			currentThrottle: this.currentThrottle
+			currentThrottle: this.currentThrottle,
 		};
 	}
 }
 
 class Aircraft extends Mover {
-	constructor(type) {
+	constructor(type, game) {
 		super(MOVER_DATA[type]);
+		this.isLocal = false;
+		this.game = game;
 	}
 	draw() {
 		push();
@@ -123,14 +151,8 @@ class Aircraft extends Mover {
 		fill(51);
 		rect(-SHIP_WID / 2, -SHIP_HEI / 2, SHIP_WID, SHIP_HEI);
 		pop();
-		const velVector = this.vel
-			.clone()
-			.normalize()
-			.mult(120);
-		const frontVector = this.forwardVector
-			.clone()
-			.normalize()
-			.mult(120);
+		const velVector = this.vel.clone().normalize().mult(120);
+		const frontVector = this.forwardVector.clone().normalize().mult(120);
 		stroke(0, 200, 0);
 		line(
 			this.pos.x,
@@ -149,7 +171,9 @@ class Aircraft extends Mover {
 	run() {
 		this.move();
 		this.draw();
-		this.handleKeys();
+		if (this.isLocal) {
+			this.handleKeys();
+		}
 	}
 	handleKeys() {
 		if (k("w")) {
@@ -159,10 +183,63 @@ class Aircraft extends Mover {
 			this.currentThrottle -= THROTTLE_RATE;
 		}
 		if (k("a")) {
-			this.tunrLeft();
+			this.turnLeft();
 		}
 		if (k("d")) {
 			this.turnRight();
 		}
+		if (k(" ")) {
+			const newBullet = new Bullet({
+				pos: this.pos,
+				vel: this.forwardVector.clone().mult(BULLET_SPEED),
+			});
+			network.syncObject("Bullet", newBullet, { syncOnChange: false });
+			this.game.bullets.push(newBullet);
+		}
+		if (k("r")) {
+			const rot = fixAngle((degrees(this.vel.toAngle()) + 180) % 360);
+			const retVector = Vector.fromAngle(rot).mult(150);
+			stroke(255, 0, 0);
+			line(
+				this.pos.x,
+				this.pos.y,
+				this.pos.x + retVector.x,
+				this.pos.y + retVector.y
+			);
+			const delta = fixAngle(this.rot - rot);
+			if (delta < 180 - DEAD_ZONE) {
+				this.turnLeft();
+			} else if (delta > 180 + DEAD_ZONE) {
+				this.turnRight();
+			}
+		}
+	}
+}
+
+class Bullet extends NetworkSyncObject {
+	constructor({ pos, vel }, ownerId) {
+		super();
+		this.pos = Vector.fromObject(pos);
+		this.vel = Vector.fromObject(vel);
+		this.killAt = Date.now() + BULLET_LIFETIME;
+		this.killed = false;
+	}
+	run() {
+		this.pos.add(this.vel);
+		point(this.pos.x, this.pos.y);
+		if (Date.now() > this.killAt) {
+			this.desync();
+			this.killed = true;
+		}
+	}
+	serialize() {
+		return {
+			pos: this.pos.toObject(),
+			vel: this.vel.toObject(),
+		};
+	}
+	deserialize(obj) {
+		this.pos = Vector.fromObject(obj.pos);
+		this.vel = Vector.fromObject(obj.vel);
 	}
 }
